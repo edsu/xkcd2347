@@ -11,9 +11,12 @@ setup(
     author_email = 'ehs@pobox.com',
     license = 'http://www.opensource.org/licenses/mit-license.php',
     py_modules = ['xkcd2347'],
-    install_requires = ['requests', 'pyyaml', 'diskcache'],
     description = 'List the dependencies for a github project',
     long_description=long_description,
     long_description_content_type="text/markdown",
     entry_points = {'console_scripts': ['xkcd2347 = xkcd2347:main']},
+    install_requires = ['requests', 'pyyaml', 'diskcache'],
+    setup_requires=['pytest-runner'],
+    tests_require=['pytest'],
+
 )

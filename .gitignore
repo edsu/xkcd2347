@@ -1,3 +1,4 @@
 Pipfile
 dist
 *.egg-info
+.eggs
