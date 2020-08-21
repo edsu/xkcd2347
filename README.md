@@ -94,3 +94,15 @@ requests: https://github.com/psf/requests
 ```
 
 xkcd2347 will cache results in `~/.xkcd2347/cache` but you can ignore the cache to get more recent results by using the `--flush` command line option.
+
+### Use as a library
+
+```python
+
+import xkcd2347
+
+gh = xkcd2347.GitHub(key="yourkeyhere")
+
+for dep in gh.get_dependencies('docnow', 'twarc'):
+    print(dep['packageName'])
+```

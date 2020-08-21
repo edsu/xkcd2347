@@ -17,6 +17,5 @@ setup(
     entry_points = {'console_scripts': ['xkcd2347 = xkcd2347:main']},
     install_requires = ['requests', 'pyyaml', 'diskcache'],
     setup_requires=['pytest-runner'],
-    tests_require=['pytest'],
-
+    tests_require=['pytest', 'python-dotenv'],
 )

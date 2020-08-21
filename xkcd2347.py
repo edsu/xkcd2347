@@ -25,7 +25,8 @@ def main():
 
     config = get_config(args.flush)
 
-    for dep in get_deps(config, repo_owner, repo_name, depth=args.depth, lang=args.lang):
+    gh = GitHub(key=config['github_token'], cache=config['cache'])
+    for dep in gh.get_dependencies(repo_owner, repo_name, depth=args.depth, lang=args.lang):
         indent = dep['level'] * " "
         package = dep['packageName']
         if dep['repository']:
@@ -60,89 +61,97 @@ def get_config(flush_cache=False):
     config_data['cache'] = diskcache.Cache(cache)
     return config_data
 
-def get_deps(config, repo_owner, repo_name, depth=1, level=0, lang=None):
-    q = '''
-        {
-          repository(owner: "%s", name: "%s") {
-            description
-            dependencyGraphManifests(first: 50) {
-              nodes {
-                blobPath
-                dependencies {
+class GitHub:
+
+    def __init__(self, key, cache=None):
+        self.key = key
+        self.cache = cache
+
+    def get_dependencies(self, repo_owner, repo_name, depth=1, level=0, lang=None):
+        q = '''
+            {
+              repository(owner: "%s", name: "%s") {
+                description
+                dependencyGraphManifests(first: 50) {
                   nodes {
-                    packageName
-                    repository {
-                      name
-                      owner {
-                        login
-                      }
-                      primaryLanguage {
-                        name
+                    blobPath
+                    dependencies {
+                      nodes {
+                        packageName
+                        repository {
+                          name
+                          owner {
+                            login
+                          }
+                          primaryLanguage {
+                            name
+                          }
+                        }
+                        requirements
+                        hasDependencies
                       }
                     }
-                    requirements
-                    hasDependencies
                   }
                 }
               }
             }
-          }
-        }
-        '''
+            '''
 
-    # seen is used to prevent a given dependency from being reported more than
-    # one when a project have multiple dependencyGraphManifests
-    seen = set()
+        # seen is used to prevent a given dependency from being reported more than
+        # one when a project have multiple dependencyGraphManifests
+        seen = set()
 
-    results = query(config, q % (repo_owner, repo_name)) 
-    if 'errors' in results and len(results['errors']) > 0:
-        sys.exit('\n'.join([e['message'] for e in results['errors']]))
+        results = self.query(q % (repo_owner, repo_name)) 
+        if 'errors' in results and len(results['errors']) > 0:
+            sys.exit('\n'.join([e['message'] for e in results['errors']]))
 
-    for m in results['data']['repository']['dependencyGraphManifests']['nodes']:
-        for dep in m['dependencies']['nodes']:
-            dep['level'] = level
+        for m in results['data']['repository']['dependencyGraphManifests']['nodes']:
+            for dep in m['dependencies']['nodes']:
+                dep['level'] = level
 
-            if lang and dep['primaryLanguage']['name'].lower() != lang.lower():
-                continue
+                if lang and dep['primaryLanguage']['name'].lower() != lang.lower():
+                    continue
 
-            if dep['packageName'] in seen:
-                continue
+                if dep['packageName'] in seen:
+                    continue
 
-            seen.add(dep['packageName'])
-            yield dep
+                seen.add(dep['packageName'])
+                yield dep
 
-            if (depth == 0 or level + 1 < depth) and dep['hasDependencies'] == True and dep['repository']:
-                yield from get_deps(
-                    config,
-                    dep['repository']['owner']['login'],
-                    dep['repository']['name'],
-                    depth,
-                    level + 1
-                )
+                if (depth == 0 or level + 1 < depth) and dep['hasDependencies'] == True and dep['repository']:
+                    yield from self.get_dependencies(
+                        dep['repository']['owner']['login'],
+                        dep['repository']['name'],
+                        depth,
+                        level + 1,
+                        lang
+                    )
 
-def query(config, q):
-    if not q in config['cache']:
-        headers = {
-            "Authorization": "Bearer {}".format(config['github_token']),
-            "Accept": "application/vnd.github.hawkgirl-preview+json"
-        }
-        resp = requests.post('https://api.github.com/graphql', json={'query': q}, headers=headers)
-        if resp.status_code == 200:
-            data = resp.json()
-            if 'errors' in data and len(data['errors']) > 0:
-                # this seems to happen when GitHub needs to populate the data
-                if data['errors'][0]['message'] in ['loading', 'timedout']:
-                    time.sleep(5)
-                    return query(config, q)
+    def query(self, q):
+        if self.cache and q in self.cache:
+            return self.cache[q]
+        else:
+            headers = {
+                "Authorization": "Bearer {}".format(self.key),
+                "Accept": "application/vnd.github.hawkgirl-preview+json"
+            }
+            resp = requests.post('https://api.github.com/graphql', json={'query': q}, headers=headers)
+            if resp.status_code == 200:
+                data = resp.json()
+                if 'errors' in data and len(data['errors']) > 0:
+                    # this seems to happen when GitHub needs to populate the data
+                    if data['errors'][0]['message'] in ['loading', 'timedout']:
+                        time.sleep(5)
+                        return self.query(q)
+                    else:
+                        return data
+                elif self.cache:
+                    self.cache[q] = data
+                    return data
                 else:
                     return data
             else:
-                config['cache'][q] = data
-                return data
-        else:
-            raise Exception("Query failed to run by returning code of {}. {}".format(resp.status_code, q))
-    else:
-        return config['cache'][q]
+                raise Exception("Query failed to run by returning code of {}. {}".format(resp.status_code, q))
 
 if __name__ == "__main__":
     main()
