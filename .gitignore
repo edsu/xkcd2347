@@ -1,0 +1,3 @@
+Pipfile
+dist
+*.egg-info

@@ -2,6 +2,7 @@
 
 import os
 import sys
+import time
 import yaml
 import shutil
 import pathlib
@@ -9,11 +10,29 @@ import argparse
 import requests
 import diskcache
 
-def main(repo_owner, repo_name, depth, lang, flush_cache):
-    config = get_config(flush_cache)
-    for dep in get_deps(config, repo_owner, repo_name, depth=depth, lang=lang):
-        print(dep['level'] * " ", dep['packageName'])
+def main():
+    argp = argparse.ArgumentParser(description="Find project dependencies using GitHub's API")
+    argp.add_argument('repository', help='The repository name e.g. jupyter/notebook')
+    argp.add_argument('--depth', type=int, default=1, help='Depth to search')
+    argp.add_argument('--lang', help='Limit to language dependencies')
+    argp.add_argument('--flush', action="store_true", help='Flush the cache of previous data')
+    args = argp.parse_args()
 
+    parts = args.repository.split('/')
+    if len(parts) != 2:
+        argp.error("The GitHub repository must look like jupyter/notebook")
+    repo_owner, repo_name = parts
+
+    config = get_config(args.flush)
+
+    for dep in get_deps(config, repo_owner, repo_name, depth=args.depth, lang=args.lang):
+        indent = dep['level'] * " "
+        package = dep['packageName']
+        if dep['repository']:
+            url = 'https://github.com/{0[owner][login]}/{0[name]}'.format(dep['repository'])
+        else:
+            url = ''
+        print('{} {}: {}'.format(indent, package, url))
 
 def get_config(flush_cache=False):
     home = pathlib.Path.home() / ".xkcd2347"
@@ -76,6 +95,9 @@ def get_deps(config, repo_owner, repo_name, depth=1, level=0, lang=None):
     seen = set()
 
     results = query(config, q % (repo_owner, repo_name)) 
+    if 'errors' in results and len(results['errors']) > 0:
+        sys.exit('\n'.join([e['message'] for e in results['errors']]))
+
     for m in results['data']['repository']['dependencyGraphManifests']['nodes']:
         for dep in m['dependencies']['nodes']:
             dep['level'] = level
@@ -106,23 +128,22 @@ def query(config, q):
         }
         resp = requests.post('https://api.github.com/graphql', json={'query': q}, headers=headers)
         if resp.status_code == 200:
-            config['cache'][q] = resp.json()
+            data = resp.json()
+            if 'errors' in data and len(data['errors']) > 0:
+                # this seems to happen when GitHub needs to populate the data
+                if data['errors'][0]['message'] in ['loading', 'timedout']:
+                    time.sleep(5)
+                    return query(config, q)
+                else:
+                    return data
+            else:
+                config['cache'][q] = data
+                return data
         else:
             raise Exception("Query failed to run by returning code of {}. {}".format(resp.status_code, q))
-    return config['cache'][q]
+    else:
+        return config['cache'][q]
 
 if __name__ == "__main__":
-    argp = argparse.ArgumentParser(description="Find project dependencies using GitHub's API")
-    argp.add_argument('repo', help='The repository name e.g. jupyter/notebook')
-    argp.add_argument('--depth', type=int, default=1, help='Depth to search')
-    argp.add_argument('--lang', help='Limit to language dependencies')
-    argp.add_argument('--flush', action="store_true", help='Flush the cache of previous data')
-    args = argp.parse_args()
-    repo_owner, repo_name = args.repo.split('/')
-    main(
-        repo_owner=repo_owner,
-        repo_name=repo_name,
-        depth=args.depth,
-        lang=args.lang,
-        flush_cache=args.flush,
-    )
+    main()
+
