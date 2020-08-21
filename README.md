@@ -1,13 +1,20 @@
 # xkcd2347
 
-This is utility that uses the GitHub GraphQL API to walk the software
-dependencies in projects. It got its strange name from this XKCD comic:
+This is utility that uses the [DependencyGraphManifestConnection](https://docs.github.com/en/graphql/reference/objects#dependencygraphmanifestconnection) resource in the GitHub GraphQL API to walk the software
+dependencies in projects. The utility got its strange name from this XKCD comic:
 
 <a href="https://m.xkcd.com/2347/">
   <img src="https://imgs.xkcd.com/comics/dependency.png">
 </a>
 
+### Install
+
+    pip install xkcd2347
+
+### Use
+
 ```
+$ xkcd2347 --depth 2 edsu/xkcd2347 
  diskcache
  pyyaml
  requests
@@ -88,7 +95,3 @@ dependencies in projects. It got its strange name from this XKCD comic:
 ```
 
 xkcd2347 will cache results in `~/.xkcd2347/cache` but you can ignore the cache to get more recent results by using the `--flush` command line option.
-
-
-
-
