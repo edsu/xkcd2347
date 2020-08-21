@@ -91,8 +91,7 @@ def get_deps(config, repo_owner, repo_name, depth=1, level=0, lang=None):
 
             if (depth == 0 or level + 1 < depth) and dep['hasDependencies'] == True and dep['repository']:
                 yield from get_deps(
-                    key,
-                    cache,
+                    config,
                     dep['repository']['owner']['login'],
                     dep['repository']['name'],
                     depth,
