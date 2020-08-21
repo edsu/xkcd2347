@@ -7,7 +7,7 @@ dependencies in projects. The utility got its strange name from this XKCD comic:
   <img src="https://imgs.xkcd.com/comics/dependency.png">
 </a>
 
-### Install
+## Install
 
     pip install xkcd2347
 
@@ -95,7 +95,7 @@ requests: https://github.com/psf/requests
 
 xkcd2347 will cache results in `~/.xkcd2347/cache` but you can ignore the cache to get more recent results by using the `--flush` command line option.
 
-### Use as a library
+## Use as a Library
 
 ```python
 
@@ -106,3 +106,13 @@ gh = xkcd2347.GitHub(key="yourkeyhere")
 for dep in gh.get_dependencies('docnow', 'twarc'):
     print(dep['packageName'])
 ```
+
+## Develop
+
+Put your GitHub token in a .env file:
+
+    GITHUB_TOKEN=YOUR_TOKEN_HERE
+
+And then run the tests!
+
+    python setup.py test
