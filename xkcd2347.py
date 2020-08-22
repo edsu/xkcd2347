@@ -45,6 +45,8 @@ def get_config(flush_cache=False):
 
     if flush_cache:
         shutil.rmtree(cache)
+
+    if not cache.exists():
         cache.mkdir()
 
     config = home / "config.yaml"
@@ -154,7 +156,7 @@ class GitHub:
                         return self.query(q)
                     else:
                         return data
-                elif self.cache:
+                elif self.cache is not None:
                     self.cache[q] = data
                     return data
                 else:
