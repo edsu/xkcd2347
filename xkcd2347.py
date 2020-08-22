@@ -66,8 +66,9 @@ class GitHub:
     def __init__(self, key, cache=None):
         self.key = key
         self.cache = cache
+        self.parents = []
 
-    def get_dependencies(self, repo_owner, repo_name, depth=1, level=0, lang=None):
+    def get_dependencies(self, repo_owner, repo_name, depth=1, lang=None):
         q = '''
             {
               repository(owner: "%s", name: "%s") {
@@ -107,9 +108,9 @@ class GitHub:
 
         for m in results['data']['repository']['dependencyGraphManifests']['nodes']:
             for dep in m['dependencies']['nodes']:
-                dep['level'] = level
+                dep['level'] = len(self.parents)
 
-                if lang and dep['primaryLanguage']['name'].lower() != lang.lower():
+                if lang and dep['repository'] and dep['repository']['primaryLanguage'] and dep['repository']['primaryLanguage']['name'].lower() != lang.lower():
                     continue
 
                 if dep['packageName'] in seen:
@@ -118,14 +119,22 @@ class GitHub:
                 seen.add(dep['packageName'])
                 yield dep
 
-                if (depth == 0 or level + 1 < depth) and dep['hasDependencies'] == True and dep['repository']:
-                    yield from self.get_dependencies(
+                if (depth == 0 or len(self.parents) + 1 < depth) and dep['hasDependencies'] == True and dep['repository']:
+                    # prevent an infinite loop from circular dependencies
+                    dep_id = '{}/{}/{}'.format(
                         dep['repository']['owner']['login'],
                         dep['repository']['name'],
-                        depth,
-                        level + 1,
-                        lang
+                        dep['packageName']
                     )
+                    if dep_id not in self.parents:
+                        self.parents.append(dep_id)
+                        yield from self.get_dependencies(
+                            dep['repository']['owner']['login'],
+                            dep['repository']['name'],
+                            depth,
+                            lang
+                        )
+                        self.parents.pop()
 
     def query(self, q):
         if self.cache and q in self.cache:
