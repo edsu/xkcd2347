@@ -95,6 +95,10 @@ requests: https://github.com/psf/requests
 
 xkcd2347 will cache results in `~/.xkcd2347/cache` but you can ignore the cache to get more recent results by using the `--flush` command line option.
 
+If you give set `--level 0` then xkcd2347 will try to find all the dependencies
+as far down as they go. It does take care to not get caught in circular
+dependencies.
+
 ## Use as a Library
 
 ```python
