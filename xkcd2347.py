@@ -83,6 +83,7 @@ class GitHub:
                         packageName
                         repository {
                           name
+                          nameWithOwner
                           owner {
                             login
                           }
