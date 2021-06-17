@@ -4,7 +4,7 @@ with open("README.md") as f:
     long_description = f.read()
 
 setup(
-    version = '0.0.3',
+    version = '0.0.4',
     name = 'xkcd2347',
     url = 'http://github.com/edsu/xkcd2347',
     author = 'Ed Summers',
